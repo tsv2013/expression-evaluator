@@ -5,13 +5,14 @@ env:
   global:
   - GH_REF: github.com/tsv2013/expression-evaluator.git
 script:
-- webpack
+- npm run build
+- npm test
 deploy:
   provider: npm
   email: tsv2013@users.noreply.github.com
   skip_cleanup: true
   api_key:
-    secure: ???
+    secure: "???"
   on:
     tags: true
     repo: tsv2013/expression-evaluator
