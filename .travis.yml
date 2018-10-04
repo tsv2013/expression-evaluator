@@ -1,0 +1,17 @@
+language: node_js
+node_js:
+- '6'
+env:
+  global:
+  - GH_REF: github.com/tsv2013/expression-evaluator.git
+script:
+- webpack
+deploy:
+  provider: npm
+  email: tsv2013@users.noreply.github.com
+  skip_cleanup: true
+  api_key:
+    secure: ???
+  on:
+    tags: true
+    repo: tsv2013/expression-evaluator
