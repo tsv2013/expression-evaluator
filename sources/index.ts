@@ -3,39 +3,61 @@ export class Token {
   type: string;
 }
 
-function isOfMoreOrEqualPriority(currentOp: string, otherOp: string): boolean {
-  const high = "*/";
-  const currOpHigh = high.indexOf(currentOp) !== -1;
-  const otherOpHigh = high.indexOf(otherOp) !== -1;
-  return (
-    (!currOpHigh && !otherOpHigh) ||
-    (!currOpHigh && otherOpHigh) ||
-    (currOpHigh && otherOpHigh)
-  );
-}
-
 export class ExpressionEvaluator {
-  tokenizeExpression(expression: string): Array<Token> {
+  static operations = {
+    "+": {
+      priority: 0,
+      function: (a, b) => a! + b!
+    },
+    "-": {
+      priority: 0,
+      function: (a, b) => a! - b!
+    },
+    "*": {
+      priority: 1,
+      function: (a, b) => a! * b!
+    },
+    "/": {
+      priority: 1,
+      function: (a, b) => a! / b!
+    },
+    "%": {
+      priority: 1,
+      function: (a, b) => a! % b!
+    }
+  };
+  private static digits = "0123456789";
+  private static brackets = "()";
+
+  private isOfMoreOrEqualPriority(currentOp: string, otherOp: string): boolean {
+    return (
+      ExpressionEvaluator.operations[currentOp].priority <=
+      ExpressionEvaluator.operations[otherOp].priority
+    );
+  }
+
+  tokenize(expression: string): Array<Token> {
     var tokens: Array<Token> = [];
-    var digits = "0123456789";
-    var operations = "+-*/";
-    var brackets = "()";
     for (var i = 0; i < expression.length; ) {
-      if (brackets.indexOf(expression[i]) !== -1) {
+      if (ExpressionEvaluator.brackets.indexOf(expression[i]) !== -1) {
         tokens.push({ type: expression[i] });
         i++;
         continue;
       }
-      if (operations.indexOf(expression[i]) !== -1) {
+      if (
+        Object.keys(ExpressionEvaluator.operations).indexOf(expression[i]) !==
+        -1
+      ) {
         tokens.push({ type: expression[i] });
         i++;
         continue;
       }
-      if (digits.indexOf(expression[i]) !== -1) {
+      if (ExpressionEvaluator.digits.indexOf(expression[i]) !== -1) {
         var temp = "";
         for (
           ;
-          digits.indexOf(expression[i]) !== -1 && i < expression.length;
+          ExpressionEvaluator.digits.indexOf(expression[i]) !== -1 &&
+          i < expression.length;
           i++
         ) {
           temp += expression[i];
@@ -48,17 +70,15 @@ export class ExpressionEvaluator {
     return tokens;
   }
 
-  convertToBackPolish(tokens: Array<Token>): Array<Token> {
-    var brackets = "()";
-    var operations = "+-*/";
+  convertToRPN(tokens: Array<Token>): Array<Token> {
     var stack: Array<Token> = [];
-    var postf: Array<Token> = [];
-    var currTok;
+    var rpn: Array<Token> = [];
+    var currToken;
 
     var j = 0;
     for (var i = 0; i < tokens.length; i++) {
       if (tokens[i].type == "n") {
-        postf[j++] = tokens[i];
+        rpn[j++] = tokens[i];
         continue;
       }
       if (tokens[i].type == "(") {
@@ -67,27 +87,30 @@ export class ExpressionEvaluator {
       }
       if (tokens[i].type == ")") {
         do {
-          currTok = stack.pop();
-          postf[j++] = currTok;
-        } while (postf[j - 1].type != "(");
+          currToken = stack.pop();
+          rpn[j++] = currToken;
+        } while (rpn[j - 1].type != "(");
         j--;
         continue;
       }
-      if (operations.indexOf(tokens[i].type) !== -1) {
+      if (
+        Object.keys(ExpressionEvaluator.operations).indexOf(tokens[i].type) !==
+        -1
+      ) {
         if (stack.length > 0) {
           do {
-            currTok = stack.pop();
-            postf[j++] = currTok;
+            currToken = stack.pop();
+            rpn[j++] = currToken;
           } while (
             stack.length > 0 &&
-            isOfMoreOrEqualPriority(tokens[i].type, postf[j - 1].type) &&
-            brackets.indexOf(postf[j - 1].type) === -1
+            this.isOfMoreOrEqualPriority(tokens[i].type, rpn[j - 1].type) &&
+            ExpressionEvaluator.brackets.indexOf(rpn[j - 1].type) === -1
           );
           if (
-            !isOfMoreOrEqualPriority(tokens[i].type, postf[j - 1].type) ||
-            brackets.indexOf(postf[j - 1].type) !== -1
+            !this.isOfMoreOrEqualPriority(tokens[i].type, rpn[j - 1].type) ||
+            ExpressionEvaluator.brackets.indexOf(rpn[j - 1].type) !== -1
           ) {
-            stack.push(currTok);
+            stack.push(currToken);
             j--;
           }
         }
@@ -96,45 +119,34 @@ export class ExpressionEvaluator {
       }
     }
     while (stack.length > 0) {
-      currTok = stack.pop();
-      postf[j++] = currTok;
+      currToken = stack.pop();
+      rpn[j++] = currToken;
     }
-    return postf;
+    return rpn;
   }
 
-  calculateBackPolish(postf: Array<Token>): number {
-    var stack: Array<Token> = [];
-    var op1, op2;
+  calculateRPN(rpn: Array<Token>): number {
+    var operands: Array<Token> = [];
 
-    for (var i = 0; i < postf.length; i++) {
-      if (postf[i].type == "n") {
-        stack.push(postf[i]);
+    for (var i = 0; i < rpn.length; i++) {
+      if (rpn[i].type === "n") {
+        operands.push(rpn[i]);
       } else {
-        op2 = stack.pop();
-        op1 = stack.pop();
-        if (postf[i].type == "+") {
-          op1.value += op2.value;
-        }
-        if (postf[i].type == "-") {
-          op1.value -= op2.value;
-        }
-        if (postf[i].type == "*") {
-          op1.value *= op2.value;
-        }
-        if (postf[i].type == "/") {
-          op1.value /= op2.value;
-        }
-        stack.push(op1);
+        var func = ExpressionEvaluator.operations[rpn[i].type].function;
+        var args = operands
+          .splice(operands.length - func.length)
+          .map(op => op.value);
+        operands.push({
+          type: "n",
+          value: func(...args)
+        });
       }
     }
-    var resultToken = stack.pop();
-    var result = resultToken.value;
-    return result;
+    var resultToken = operands.shift();
+    return resultToken.value;
   }
 
   evaluate(expression: string) {
-    return this.calculateBackPolish(
-      this.convertToBackPolish(this.tokenizeExpression(expression))
-    );
+    return this.calculateRPN(this.convertToRPN(this.tokenize(expression)));
   }
 }

@@ -27,6 +27,7 @@
   "scripts": {
     "build": "webpack",
     "test": "jest",
+    "testDev": "jest --watch",
     "release": "standard-version --message \"Release: %s\""
   },
   "dependencies": {},
