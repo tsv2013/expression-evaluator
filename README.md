@@ -39,3 +39,10 @@ JavaScript (TypeScript) math expression evaluator library
   var ee = new ExpressionEvaluator();
   var result = ee.evaluate("mySecond(5, myFunc(2,4), mySq(2))");
 ```
+
+### Evaluation context
+```JS
+  var ee = new ExpressionEvaluator();
+  var evaluationContext = { propertyName: 1 };
+  var result = ee.evaluate("{propertyName} + 1", evaluationContext);
+```
