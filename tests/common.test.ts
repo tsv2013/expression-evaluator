@@ -167,7 +167,7 @@ test("basic empty", () => {
   expect(ee.evaluate("0")).toBe(0);
 });
 
-test("custom function with number in name", () => {
+test("tokenize function with number in name", () => {
   var ee = new ExpressionEvaluator();
   ExpressionEvaluator.operations["myFun1WithNumbers2"] = {
     priority: 100,
@@ -182,7 +182,7 @@ test("custom function with number in name", () => {
   expect(tokens[4].type).toBe(")");
 });
 
-test("tokenize function with number in name", () => {
+test("custom function with number in name", () => {
   var ee = new ExpressionEvaluator();
   ExpressionEvaluator.operations["myFun1WithNumber"] = {
     priority: 100,
