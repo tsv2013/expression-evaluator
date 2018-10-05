@@ -190,3 +190,19 @@ test("custom function with number in name", () => {
   };
   expect(ee.evaluate("myFun1WithNumber(2,4)")).toBe(3);
 });
+
+test("tokenize context simple property", () => {
+  var ee = new ExpressionEvaluator();
+  var tokens = ee.tokenize("{propertyName} + 1");
+  expect(tokens.length).toBe(5);
+  expect(tokens[0].type).toBe("$$getContextValue");
+  expect(tokens[1].type).toBe("n");
+  expect(tokens[2].type).toBe("n");
+  expect(tokens[3].type).toBe("+");
+  expect(tokens[4].type).toBe("n");
+});
+
+test("context simple property", () => {
+  var ee = new ExpressionEvaluator();
+  expect(ee.evaluate("{propertyName} + 1", { propertyName: 1 })).toBe(2);
+});

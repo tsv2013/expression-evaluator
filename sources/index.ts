@@ -8,14 +8,16 @@ export enum TokenizerStates {
   ParsingNumber = 2,
   ParsingFunction = 3,
   Finished = 4,
-  Error = 5,
-  ParsingBracket = 6
+  ParsingContext = 5,
+  Error = 6,
+  ParsingBracket = 7
 }
 enum KnownStringComponents {
   Delimiter = 1,
   Digit = 2,
   Bracket = 3,
-  Other = 4
+  Other = 4,
+  ContextBracket = 5
 }
 
 var tokenStateMachine: any = {};
@@ -23,25 +25,36 @@ tokenStateMachine[TokenizerStates.Started] = {
   1: TokenizerStates.Started,
   2: TokenizerStates.ParsingNumber,
   3: TokenizerStates.ParsingBracket,
-  4: TokenizerStates.ParsingFunction
+  4: TokenizerStates.ParsingFunction,
+  5: TokenizerStates.ParsingContext
 };
 tokenStateMachine[TokenizerStates.ParsingNumber] = {
   1: TokenizerStates.Finished,
   2: TokenizerStates.ParsingNumber,
   3: TokenizerStates.Finished,
-  4: TokenizerStates.Finished
+  4: TokenizerStates.Finished,
+  5: TokenizerStates.Error
 };
 tokenStateMachine[TokenizerStates.ParsingFunction] = {
   1: TokenizerStates.Finished,
   2: TokenizerStates.ParsingFunction,
   3: TokenizerStates.Finished,
-  4: TokenizerStates.ParsingFunction
+  4: TokenizerStates.ParsingFunction,
+  5: TokenizerStates.Error
 };
 tokenStateMachine[TokenizerStates.ParsingBracket] = {
   1: TokenizerStates.Finished,
   2: TokenizerStates.Finished,
   3: TokenizerStates.Finished,
-  4: TokenizerStates.Finished
+  4: TokenizerStates.Finished,
+  5: TokenizerStates.Finished
+};
+tokenStateMachine[TokenizerStates.ParsingContext] = {
+  1: TokenizerStates.Finished,
+  2: TokenizerStates.ParsingContext,
+  3: TokenizerStates.Finished,
+  4: TokenizerStates.ParsingContext,
+  5: TokenizerStates.ParsingContext
 };
 
 export class ExpressionEvaluator {
@@ -85,11 +98,24 @@ export class ExpressionEvaluator {
     false: {
       priority: 100,
       function: () => false
+    },
+    $$getContextValue: {
+      priority: 100,
+      function: (contextPropertyName: string, context: any) => {
+        var propertyName = contextPropertyName!.substring(
+          1,
+          contextPropertyName.length - 1
+        );
+        return context[propertyName];
+      }
     }
   };
   private static digits = "0123456789.";
   private static brackets = "()";
+  private static contextBrackets = "{}";
   private static delimeters = " ,\r\r\n";
+
+  private context: any = {};
 
   private isOfMoreOrEqualPriority(currentOp: string, otherOp: string): boolean {
     return (
@@ -105,6 +131,8 @@ export class ExpressionEvaluator {
       return KnownStringComponents.Bracket;
     } else if (ExpressionEvaluator.digits.indexOf(symbol) !== -1) {
       return KnownStringComponents.Digit;
+    } else if (ExpressionEvaluator.contextBrackets.indexOf(symbol) !== -1) {
+      return KnownStringComponents.ContextBracket;
     }
     return KnownStringComponents.Other;
   }
@@ -129,7 +157,8 @@ export class ExpressionEvaluator {
       if (
         state === TokenizerStates.ParsingFunction ||
         state === TokenizerStates.ParsingNumber ||
-        state === TokenizerStates.ParsingBracket
+        state === TokenizerStates.ParsingBracket ||
+        state === TokenizerStates.ParsingContext
       ) {
         workingState = state;
         tokenString += str[i++];
@@ -159,6 +188,20 @@ export class ExpressionEvaluator {
               tokenCandidate.tokenString.indexOf(".") !== -1
                 ? parseFloat(tokenCandidate.tokenString)
                 : parseInt(tokenCandidate.tokenString)
+          });
+        } else if (
+          tokenCandidate.workingState === TokenizerStates.ParsingContext
+        ) {
+          tokens.push({
+            type: "$$getContextValue"
+          });
+          tokens.push({
+            type: "n",
+            value: <any>tokenCandidate.tokenString
+          });
+          tokens.push({
+            type: "n",
+            value: this.context
           });
         } else {
           tokens.push({
@@ -251,7 +294,8 @@ export class ExpressionEvaluator {
     return resultToken.value;
   }
 
-  evaluate(expression: string) {
+  evaluate(expression: string, context = {}) {
+    this.context = context;
     return this.calculateRPN(this.convertToRPN(this.tokenize(expression)));
   }
 }
