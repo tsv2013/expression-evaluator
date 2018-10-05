@@ -3,26 +3,44 @@ export class Token {
   type: string;
 }
 
-export enum TokenizerStates { Started = 1, ParsingNumber = 2, ParsingFunction = 3, Finished = 4, Error = 5 }
-enum KnownStringComponents { Delimiter = 1, Digit = 2, Other = 3, Bracket = 4 }
+export enum TokenizerStates {
+  Started = 1,
+  ParsingNumber = 2,
+  ParsingFunction = 3,
+  Finished = 4,
+  Error = 5,
+  ParsingBracket = 6
+}
+enum KnownStringComponents {
+  Delimiter = 1,
+  Digit = 2,
+  Bracket = 3,
+  Other = 4
+}
 
 var tokenStateMachine: any = {};
-tokenStateMachine[TokenizerStates.Started] = { 
+tokenStateMachine[TokenizerStates.Started] = {
   1: TokenizerStates.Started,
   2: TokenizerStates.ParsingNumber,
-  3: TokenizerStates.ParsingFunction,
+  3: TokenizerStates.ParsingBracket,
   4: TokenizerStates.ParsingFunction
 };
-tokenStateMachine[TokenizerStates.ParsingNumber] = { 
+tokenStateMachine[TokenizerStates.ParsingNumber] = {
   1: TokenizerStates.Finished,
   2: TokenizerStates.ParsingNumber,
   3: TokenizerStates.Finished,
   4: TokenizerStates.Finished
 };
-tokenStateMachine[TokenizerStates.ParsingFunction] = { 
+tokenStateMachine[TokenizerStates.ParsingFunction] = {
+  1: TokenizerStates.Finished,
+  2: TokenizerStates.ParsingFunction,
+  3: TokenizerStates.Finished,
+  4: TokenizerStates.ParsingFunction
+};
+tokenStateMachine[TokenizerStates.ParsingBracket] = {
   1: TokenizerStates.Finished,
   2: TokenizerStates.Finished,
-  3: TokenizerStates.ParsingFunction,
+  3: TokenizerStates.Finished,
   4: TokenizerStates.Finished
 };
 
@@ -48,29 +66,29 @@ export class ExpressionEvaluator {
       priority: 1,
       function: (a, b) => a! % b!
     },
-    "or": {
+    or: {
       priority: 0,
       function: (a, b) => a || b
     },
-    "and": {
+    and: {
       priority: 1,
       function: (a, b) => a && b
     },
     "!": {
       priority: 2,
-      function: (a) => !a
+      function: a => !a
     },
-    "true": {
+    true: {
       priority: 100,
       function: () => true
     },
-    "false": {
+    false: {
       priority: 100,
       function: () => false
     }
   };
   private static digits = "0123456789.";
-  private static brackets = "(){}";
+  private static brackets = "()";
   private static delimeters = " ,\r\r\n";
 
   private isOfMoreOrEqualPriority(currentOp: string, otherOp: string): boolean {
@@ -81,11 +99,11 @@ export class ExpressionEvaluator {
   }
 
   classifySymbol(symbol: string): KnownStringComponents {
-    if(ExpressionEvaluator.delimeters.indexOf(symbol) !== -1) {
+    if (ExpressionEvaluator.delimeters.indexOf(symbol) !== -1) {
       return KnownStringComponents.Delimiter;
-    } else if(ExpressionEvaluator.brackets.indexOf(symbol) !== -1) {
+    } else if (ExpressionEvaluator.brackets.indexOf(symbol) !== -1) {
       return KnownStringComponents.Bracket;
-    } else if(ExpressionEvaluator.digits.indexOf(symbol) !== -1) {
+    } else if (ExpressionEvaluator.digits.indexOf(symbol) !== -1) {
       return KnownStringComponents.Digit;
     }
     return KnownStringComponents.Other;
@@ -96,38 +114,51 @@ export class ExpressionEvaluator {
     var workingState = TokenizerStates.Error;
     var tokenString = "";
     var i = start;
-    while(i < str.length && (state !== TokenizerStates.Finished && state !== TokenizerStates.Error)) {
+    while (
+      i < str.length &&
+      (state !== TokenizerStates.Finished && state !== TokenizerStates.Error)
+    ) {
       var symbolClass = this.classifySymbol(str[i]);
       state = tokenStateMachine[state][symbolClass];
-      if(state === TokenizerStates.ParsingFunction && ExpressionEvaluator.operations[tokenString] !== undefined) {
+      if (
+        state === TokenizerStates.ParsingFunction &&
+        ExpressionEvaluator.operations[tokenString] !== undefined
+      ) {
         state = TokenizerStates.Finished;
       }
-      if(state === TokenizerStates.ParsingFunction || state === TokenizerStates.ParsingNumber) {
+      if (
+        state === TokenizerStates.ParsingFunction ||
+        state === TokenizerStates.ParsingNumber ||
+        state === TokenizerStates.ParsingBracket
+      ) {
         workingState = state;
         tokenString += str[i++];
-      } else if(state === TokenizerStates.Started) {
+      } else if (state === TokenizerStates.Started) {
         i++;
       }
     }
-    if(tokenString === "") {
+    if (tokenString === "") {
       workingState = TokenizerStates.Error;
     }
     return {
       workingState,
       tokenString,
       pos: i
-    }
+    };
   }
 
   tokenize(expression: string): Array<Token> {
     var tokens: Array<Token> = [];
     for (var i = 0; i < expression.length; ) {
       var tokenCandidate = this.scanToken(expression, i);
-      if(tokenCandidate.workingState !== TokenizerStates.Error) {
-        if(tokenCandidate.workingState === TokenizerStates.ParsingNumber) {
+      if (tokenCandidate.workingState !== TokenizerStates.Error) {
+        if (tokenCandidate.workingState === TokenizerStates.ParsingNumber) {
           tokens.push({
             type: "n",
-            value: tokenCandidate.tokenString.indexOf(".") !== -1 ? parseFloat(tokenCandidate.tokenString) : parseInt(tokenCandidate.tokenString)
+            value:
+              tokenCandidate.tokenString.indexOf(".") !== -1
+                ? parseFloat(tokenCandidate.tokenString)
+                : parseInt(tokenCandidate.tokenString)
           });
         } else {
           tokens.push({
@@ -198,7 +229,7 @@ export class ExpressionEvaluator {
   calculateRPN(rpn: Array<Token>): number {
     var operands: Array<Token> = [];
 
-    if(rpn.length === 0) {
+    if (rpn.length === 0) {
       return undefined;
     }
 
